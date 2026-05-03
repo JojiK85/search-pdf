@@ -28,10 +28,7 @@
     margin-bottom: 6px;
   }
 
-  header p {
-    color: #888;
-    font-size: 14px;
-  }
+  header p { color: #888; font-size: 14px; }
 
   .search-wrap {
     background: #1c1b18;
@@ -42,7 +39,6 @@
 
   .search-bar {
     display: flex;
-    gap: 0;
     width: 100%;
     max-width: 620px;
     border-radius: 10px;
@@ -81,7 +77,6 @@
     padding: 2rem 1.5rem;
   }
 
-  /* Loading */
   #loading {
     text-align: center;
     padding: 3rem 0;
@@ -96,21 +91,18 @@
     animation: spin 0.8s linear infinite;
     margin: 0 auto 12px;
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
 
+  @keyframes spin { to { transform: rotate(360deg); } }
   #loading p { color: #888; font-size: 14px; }
 
-  /* Status */
   #status {
     font-size: 14px;
     color: #888;
     margin-bottom: 1.25rem;
     min-height: 20px;
   }
-
   #status b { color: #1c1b18; }
 
-  /* Result cards */
   .result {
     background: #fff;
     border: 1px solid #e5e2da;
@@ -126,7 +118,6 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 8px;
   }
 
   .pdf-icon {
@@ -143,10 +134,10 @@
     font-weight: 600;
     color: #1c1b18;
     word-break: break-word;
+    flex: 1;
   }
 
   .match-badge {
-    margin-left: auto;
     background: #eaf5e9;
     color: #1f7a1a;
     font-size: 11px;
@@ -163,7 +154,7 @@
     line-height: 1.6;
     border-top: 1px solid #f0ede8;
     padding-top: 8px;
-    margin-top: 2px;
+    margin-top: 8px;
   }
 
   mark {
@@ -174,18 +165,15 @@
     font-weight: 600;
   }
 
-  /* No results */
   .empty {
     text-align: center;
     padding: 3rem 0;
     color: #999;
   }
-
   .empty .icon { font-size: 40px; margin-bottom: 12px; }
   .empty p { font-size: 15px; }
   .empty small { font-size: 13px; color: #bbb; }
 
-  /* Index.json setup notice */
   .setup-notice {
     background: #fff8ec;
     border: 1px solid #f0d080;
@@ -195,7 +183,6 @@
     font-size: 14px;
     line-height: 1.7;
   }
-
   .setup-notice h2 { font-size: 15px; margin-bottom: 6px; }
   .setup-notice code {
     font-family: monospace;
@@ -225,23 +212,20 @@
     <div class="spinner"></div>
     <p>Loading index...</p>
   </div>
-
   <div id="status"></div>
   <div id="results"></div>
 </div>
 
 <script>
-// ─── CONFIGURATION ────────────────────────────────────────────────
-// Replace this with the raw GitHub URL to your index.json file
-// Example: https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/index.json
 const INDEX_URL = "index.json";
-// ──────────────────────────────────────────────────────────────────
 
 let pdfData = null;
 
 document.getElementById("searchInput").addEventListener("keydown", e => {
   if (e.key === "Enter") doSearch();
 });
+
+window.addEventListener("load", () => loadIndex());
 
 async function loadIndex() {
   if (pdfData) return true;
@@ -251,6 +235,8 @@ async function loadIndex() {
     if (!res.ok) throw new Error("not found");
     pdfData = await res.json();
     document.getElementById("loading").style.display = "none";
+    document.getElementById("status").innerHTML =
+      `Index loaded — <b>${pdfData.length}</b> PDFs ready to search.`;
     return true;
   } catch {
     document.getElementById("loading").style.display = "none";
@@ -261,10 +247,9 @@ async function loadIndex() {
         <ol style="margin: 10px 0 0 18px; line-height: 2;">
           <li>Install pypdf: <code>pip install pypdf</code></li>
           <li>Run: <code>python build_index.py</code> in your PDF folder</li>
-          <li>Upload <code>index.json</code> + <code>index.html</code> + all PDFs to your GitHub repo</li>
+          <li>Upload <code>index.json</code> + <code>index.html</code> to your GitHub repo</li>
           <li>Enable GitHub Pages on that repo</li>
         </ol>
-        <p style="margin-top:10px;">If hosting elsewhere, update <code>INDEX_URL</code> in the script.</p>
       </div>`;
     return false;
   }
@@ -287,6 +272,20 @@ function getSnippet(text, query) {
   return snip.replace(re, "<mark>$1</mark>");
 }
 
+function matchesAllWords(text, query) {
+  const lower = text.toLowerCase();
+  const words = query.toLowerCase().trim().split(/\s+/);
+  return words.every(w => lower.includes(w));
+}
+
+function countMatches(text, query) {
+  const lower = text.toLowerCase();
+  const words = query.toLowerCase().trim().split(/\s+/);
+  return words.reduce((sum, w) => {
+    return sum + (lower.match(new RegExp(escapeRe(w), "g")) || []).length;
+  }, 0);
+}
+
 async function doSearch() {
   const query = document.getElementById("searchInput").value.trim();
   if (!query) return;
@@ -295,10 +294,11 @@ async function doSearch() {
   if (!ok) return;
 
   const results = [];
+
   for (const entry of pdfData) {
     const text = entry.text || "";
-    if (text.toLowerCase().includes(query.toLowerCase())) {
-      const count = (text.toLowerCase().match(new RegExp(escapeRe(query.toLowerCase()), "g")) || []).length;
+    if (matchesAllWords(text, query)) {
+      const count = countMatches(text, query);
       const snippet = getSnippet(text, query);
       results.push({ file: entry.file, count, snippet });
     }
@@ -320,7 +320,8 @@ async function doSearch() {
     return;
   }
 
-  statusEl.innerHTML = `Found "<b>${query}</b>" in <b>${results.length}</b> file${results.length > 1 ? "s" : ""} out of ${pdfData.length} PDFs`;
+  statusEl.innerHTML =
+    `Found "<b>${query}</b>" in <b>${results.length}</b> file${results.length > 1 ? "s" : ""} out of ${pdfData.length} PDFs`;
   resultsEl.innerHTML = "";
 
   for (const r of results) {
