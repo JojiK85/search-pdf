@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PDF Search</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #f7f6f2;
+    min-height: 100vh;
+    color: #1c1b18;
+  }
+
+  header {
+    background: #1c1b18;
+    padding: 2rem 1.5rem 1.5rem;
+    text-align: center;
+  }
+
+  header h1 {
+    color: #fff;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.4px;
+    margin-bottom: 6px;
+  }
+
+  header p {
+    color: #888;
+    font-size: 14px;
+  }
+
+  .search-wrap {
+    background: #1c1b18;
+    padding: 0 1.5rem 2rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .search-bar {
+    display: flex;
+    gap: 0;
+    width: 100%;
+    max-width: 620px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  .search-bar input {
+    flex: 1;
+    font-size: 16px;
+    padding: 14px 18px;
+    border: none;
+    outline: none;
+    background: #fff;
+    color: #1c1b18;
+  }
+
+  .search-bar input::placeholder { color: #aaa; }
+
+  .search-bar button {
+    padding: 14px 22px;
+    background: #e8a020;
+    border: none;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .search-bar button:hover { background: #cf8c18; }
+
+  .container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+
+  /* Loading */
+  #loading {
+    text-align: center;
+    padding: 3rem 0;
+    display: none;
+  }
+
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid #e0ddd6;
+    border-top-color: #e8a020;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #loading p { color: #888; font-size: 14px; }
+
+  /* Status */
+  #status {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 1.25rem;
+    min-height: 20px;
+  }
+
+  #status b { color: #1c1b18; }
+
+  /* Result cards */
+  .result {
+    background: #fff;
+    border: 1px solid #e5e2da;
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 12px;
+    transition: box-shadow 0.15s;
+  }
+
+  .result:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+
+  .result-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .pdf-icon {
+    width: 36px; height: 36px;
+    background: #fef0d8;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .filename {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1c1b18;
+    word-break: break-word;
+  }
+
+  .match-badge {
+    margin-left: auto;
+    background: #eaf5e9;
+    color: #1f7a1a;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 99px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .snippet {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.6;
+    border-top: 1px solid #f0ede8;
+    padding-top: 8px;
+    margin-top: 2px;
+  }
+
+  mark {
+    background: #fff3b0;
+    color: #7a5500;
+    padding: 1px 2px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  /* No results */
+  .empty {
+    text-align: center;
+    padding: 3rem 0;
+    color: #999;
+  }
+
+  .empty .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty p { font-size: 15px; }
+  .empty small { font-size: 13px; color: #bbb; }
+
+  /* Index.json setup notice */
+  .setup-notice {
+    background: #fff8ec;
+    border: 1px solid #f0d080;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    color: #7a5500;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .setup-notice h2 { font-size: 15px; margin-bottom: 6px; }
+  .setup-notice code {
+    font-family: monospace;
+    background: #fef3d0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📄 PDF Search</h1>
+  <p>Type a name — find which PDF it's in</p>
+</header>
+
+<div class="search-wrap">
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="Type a name or keyword..." autocomplete="off" />
+    <button onclick="doSearch()">Search</button>
+  </div>
+</div>
+
+<div class="container">
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Loading index...</p>
+  </div>
+
+  <div id="status"></div>
+  <div id="results"></div>
+</div>
+
+<script>
+// ─── CONFIGURATION ────────────────────────────────────────────────
+// Replace this with the raw GitHub URL to your index.json file
+// Example: https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/index.json
+const INDEX_URL = "index.json";
+// ──────────────────────────────────────────────────────────────────
+
+let pdfData = null;
+
+document.getElementById("searchInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") doSearch();
+});
+
+async function loadIndex() {
+  if (pdfData) return true;
+  document.getElementById("loading").style.display = "block";
+  try {
+    const res = await fetch(INDEX_URL);
+    if (!res.ok) throw new Error("not found");
+    pdfData = await res.json();
+    document.getElementById("loading").style.display = "none";
+    return true;
+  } catch {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("results").innerHTML = `
+      <div class="setup-notice">
+        <h2>⚙️ Setup needed</h2>
+        <p>Could not load <code>index.json</code>. Follow these steps:</p>
+        <ol style="margin: 10px 0 0 18px; line-height: 2;">
+          <li>Install pypdf: <code>pip install pypdf</code></li>
+          <li>Run: <code>python build_index.py</code> in your PDF folder</li>
+          <li>Upload <code>index.json</code> + <code>index.html</code> + all PDFs to your GitHub repo</li>
+          <li>Enable GitHub Pages on that repo</li>
+        </ol>
+        <p style="margin-top:10px;">If hosting elsewhere, update <code>INDEX_URL</code> in the script.</p>
+      </div>`;
+    return false;
+  }
+}
+
+function escapeRe(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getSnippet(text, query) {
+  const lower = text.toLowerCase();
+  const idx = lower.indexOf(query.toLowerCase());
+  if (idx === -1) return null;
+  const start = Math.max(0, idx - 80);
+  const end = Math.min(text.length, idx + query.length + 80);
+  let snip = text.slice(start, end).replace(/\s+/g, " ").trim();
+  if (start > 0) snip = "…" + snip;
+  if (end < text.length) snip += "…";
+  const re = new RegExp("(" + escapeRe(query) + ")", "gi");
+  return snip.replace(re, "<mark>$1</mark>");
+}
+
+async function doSearch() {
+  const query = document.getElementById("searchInput").value.trim();
+  if (!query) return;
+
+  const ok = await loadIndex();
+  if (!ok) return;
+
+  const results = [];
+  for (const entry of pdfData) {
+    const text = entry.text || "";
+    if (text.toLowerCase().includes(query.toLowerCase())) {
+      const count = (text.toLowerCase().match(new RegExp(escapeRe(query.toLowerCase()), "g")) || []).length;
+      const snippet = getSnippet(text, query);
+      results.push({ file: entry.file, count, snippet });
+    }
+  }
+
+  results.sort((a, b) => b.count - a.count);
+
+  const statusEl = document.getElementById("status");
+  const resultsEl = document.getElementById("results");
+
+  if (!results.length) {
+    statusEl.innerHTML = `No results for "<b>${query}</b>" across ${pdfData.length} files.`;
+    resultsEl.innerHTML = `
+      <div class="empty">
+        <div class="icon">🔍</div>
+        <p>No PDF contains "<b>${query}</b>"</p>
+        <small>Try a different spelling or partial name</small>
+      </div>`;
+    return;
+  }
+
+  statusEl.innerHTML = `Found "<b>${query}</b>" in <b>${results.length}</b> file${results.length > 1 ? "s" : ""} out of ${pdfData.length} PDFs`;
+  resultsEl.innerHTML = "";
+
+  for (const r of results) {
+    const card = document.createElement("div");
+    card.className = "result";
+    card.innerHTML = `
+      <div class="result-top">
+        <div class="pdf-icon">📄</div>
+        <div class="filename">${r.file}</div>
+        <div class="match-badge">${r.count} match${r.count > 1 ? "es" : ""}</div>
+      </div>
+      ${r.snippet ? `<div class="snippet">${r.snippet}</div>` : ""}
+    `;
+    resultsEl.appendChild(card);
+  }
+}
+</script>
+</body>
+</html>
