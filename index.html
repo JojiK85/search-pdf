@@ -314,8 +314,7 @@ function getSnippet(text, query) {
 }
 
 function matchesAllWords(text, query) {
-  const lower = text.toLowerCase();
-  return query.toLowerCase().trim().split(/\s+/).every(w => lower.includes(w));
+  return text.toLowerCase().includes(query.toLowerCase().trim());
 }
 
 // Extract class from end of text string e.g. "...IITBhubaneswar.6" -> 6
