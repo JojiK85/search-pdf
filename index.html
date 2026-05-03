@@ -137,9 +137,9 @@
     flex: 1;
   }
 
-  .match-badge {
-    background: #eaf5e9;
-    color: #1f7a1a;
+  .page-badge {
+    background: #e8f0fe;
+    color: #1a56db;
     font-size: 11px;
     font-weight: 600;
     padding: 3px 9px;
@@ -218,7 +218,6 @@
 
 <script>
 const INDEX_URL = "index.json";
-
 let pdfData = null;
 
 document.getElementById("searchInput").addEventListener("keydown", e => {
@@ -274,16 +273,7 @@ function getSnippet(text, query) {
 
 function matchesAllWords(text, query) {
   const lower = text.toLowerCase();
-  const words = query.toLowerCase().trim().split(/\s+/);
-  return words.every(w => lower.includes(w));
-}
-
-function countMatches(text, query) {
-  const lower = text.toLowerCase();
-  const words = query.toLowerCase().trim().split(/\s+/);
-  return words.reduce((sum, w) => {
-    return sum + (lower.match(new RegExp(escapeRe(w), "g")) || []).length;
-  }, 0);
+  return query.toLowerCase().trim().split(/\s+/).every(w => lower.includes(w));
 }
 
 async function doSearch() {
@@ -296,15 +286,20 @@ async function doSearch() {
   const results = [];
 
   for (const entry of pdfData) {
-    const text = entry.text || "";
-    if (matchesAllWords(text, query)) {
-      const count = countMatches(text, query);
-      const snippet = getSnippet(text, query);
-      results.push({ file: entry.file, count, snippet });
-    }
-  }
+    const pages = entry.pages || [entry.text || ""];  // backward compatible
 
-  results.sort((a, b) => b.count - a.count);
+    pages.forEach((pageText, pageIndex) => {
+      if (matchesAllWords(pageText, query)) {
+        const snippet = getSnippet(pageText, query);
+        results.push({
+          file: entry.file,
+          pageNum: pageIndex + 1,
+          totalPages: pages.length,
+          snippet
+        });
+      }
+    });
+  }
 
   const statusEl = document.getElementById("status");
   const resultsEl = document.getElementById("results");
@@ -321,7 +316,7 @@ async function doSearch() {
   }
 
   statusEl.innerHTML =
-    `Found "<b>${query}</b>" in <b>${results.length}</b> file${results.length > 1 ? "s" : ""} out of ${pdfData.length} PDFs`;
+    `Found "<b>${query}</b>" in <b>${results.length}</b> entr${results.length > 1 ? "ies" : "y"}`;
   resultsEl.innerHTML = "";
 
   for (const r of results) {
@@ -331,7 +326,7 @@ async function doSearch() {
       <div class="result-top">
         <div class="pdf-icon">📄</div>
         <div class="filename">${r.file}</div>
-        <div class="match-badge">${r.count} match${r.count > 1 ? "es" : ""}</div>
+        <div class="page-badge">Page ${r.pageNum} of ${r.totalPages}</div>
       </div>
       ${r.snippet ? `<div class="snippet">${r.snippet}</div>` : ""}
     `;
